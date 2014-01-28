@@ -2,7 +2,6 @@ from nose.plugins import PluginTester
 from nose.plugins.logcapture import LogCapture
 from unittest2 import TestCase, TestSuite
 from nose_selenium import NoseSelenium
-from exceptions import TypeError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -37,7 +36,7 @@ class ConfigurationErrorBase(NoseSeleniumBase):
     def test_error_raised(self):
         if self.__class__.__name__ == 'ConfigurationErrorBase':
             return  # abstract
-        self.assertIn(self.expected_error, self.error.message)
+        self.assertIn(self.expected_error, str(self.error))
 
 
 ############################# local ##############################

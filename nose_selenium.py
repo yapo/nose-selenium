@@ -10,9 +10,7 @@ from selenium.webdriver.remote.command import Command
 from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from unittest2 import TestCase
-from exceptions import TypeError #  , Exception
-from ConfigParser import ConfigParser
-#from urllib2 import URLError
+from configparser import ConfigParser
 
 import logging
 logger = logging.getLogger(__name__)
@@ -31,6 +29,7 @@ TIMEOUT = None
 SAUCE_USERNAME = None
 SAUCE_APIKEY = None
 SAVED_FILES_PATH = None
+
 
 def setup_selenium_from_config(config):
     """Start selenium with values from config file, or defaults
