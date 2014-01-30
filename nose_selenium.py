@@ -11,6 +11,7 @@ from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from unittest2 import TestCase
 from configparser import ConfigParser
+from functools import wraps
 
 import logging
 logger = logging.getLogger(__name__)
@@ -552,6 +553,21 @@ def build_webdriver(name="", tags=[], public=False):
     # sometimes what goes out != what goes in, so log it
     logger.info("actual capabilities: %s" % wd.capabilities)
     return wd
+
+
+def use_selenium(test):
+    """Decorator for test methods that opens a selenium
+    webdriver and then closes it after the test is done
+    or fails
+    """
+    @wraps(test)
+    def decorated(self):
+        wd = build_webdriver()
+        try:
+            test(self, wd)
+        finally:
+            wd.quit()
+    return decorated
 
 
 class SeleniumTestCase(TestCase):
