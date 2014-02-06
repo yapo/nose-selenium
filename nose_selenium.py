@@ -484,7 +484,7 @@ class ScreenshotOnExceptionWebDriver(webdriver.Remote):
 
 
 
-def build_webdriver(name="", tags=[], public=False):
+def build_webdriver(name="", tags=[], public=False, **extra):
     """Create and return the desired WebDriver instance."""
     global BROWSER_LOCATION
     global BROWSER
@@ -500,9 +500,12 @@ def build_webdriver(name="", tags=[], public=False):
     wd = None
 
     if BROWSER_LOCATION == 'local':
+        #TODO Add PanthomJS case
         if BROWSER == 'FIREFOX':
+            #TODO Create and add useragent to profile
             wd = webdriver.Firefox()
         elif BROWSER == 'CHROME':
+            #TODO Create and add useragent to call flags
             wd = webdriver.Chrome()
         elif BROWSER == 'INTERNETEXPLORER':
             wd = webdriver.Ie()
@@ -559,26 +562,39 @@ def build_webdriver(name="", tags=[], public=False):
     return wd
 
 
-def use_selenium(test):
-    """Decorator for test methods that opens a selenium
-    webdriver and then closes it after the test is done
-    or fails
+def use_selenium(test=None, user_agent=None):
+    """Decorator that provides a web driver as an extra argument
     """
+    if test is None:
+        return partial(use_selenium, user_agent=user_agent)
     @wraps(test)
     def decorated(self):
-        wd = build_webdriver()
+        wd = build_webdriver(user_agent=user_agent)
+        self._drivers.append(wd)
         try:
             test(self, wd)
         finally:
             wd.quit()
+            self._wds.remove(wd)
     return decorated
+
+class TestWrapperMetaclass(type):
+    """Metaclass that wraps the tests inside the TestCase to use selenium"""
+    def __new__(cls, classname, bases, attrs):
+        for k in dir(cls):
+            import pdb; pdb.set_trace()
+            v = getattr(cls, k)
+            if callable(v) and k.startswith('test'):
+                attrs[k] = use_selenium(v)
+        return type.__new__(cls, classname, bases, attrs)
+
+    @classmethod
+    def tearDownClass(cls):
+        for wd in cls._wds:
+            wd.quit()
 
 
 class SeleniumTestCase(TestCase):
 
-    def setUp(self):
-        self.wd = build_webdriver()
-
-    def tearDown(self):
-        self.wd.quit()
-
+    __metaclass__ = TestWrapperMetaclass
+    _drivers = []
