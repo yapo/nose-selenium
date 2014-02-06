@@ -7,6 +7,13 @@ except ImportError:
 
 from setuptools import setup
 
+
+install_requires=['selenium', 'nose', 'requests']
+if sys.version < '3':
+    install_requires.append('unittest2')
+else:
+    install_requires.append('unittest2py3k')
+
 setup(
     name='nose-selenium',
     version='0.06',
@@ -35,5 +42,5 @@ setup(
         'Programming Language :: Python',
         'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7'],
-    install_requires=['selenium', 'nose', 'requests', 'unittest2py3k'],
+    install_requires=install_requires,
 )

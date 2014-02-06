@@ -2,6 +2,7 @@ import os
 import requests
 import time
 import inspect
+import sys
 from json import dumps, loads
 from nose.plugins import Plugin
 from selenium import webdriver
@@ -9,9 +10,12 @@ from selenium.common.exceptions import WebDriverException, TimeoutException
 from selenium.webdriver.remote.command import Command
 from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.ui import WebDriverWait
-from unittest2 import TestCase
 from configparser import ConfigParser
 from functools import wraps
+if sys.version < '3':
+    from unittest2 import TestCase
+else:
+    from unittest2py3k import TestCase
 
 import logging
 logger = logging.getLogger(__name__)
