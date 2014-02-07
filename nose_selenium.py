@@ -10,12 +10,12 @@ from selenium.common.exceptions import WebDriverException, TimeoutException
 from selenium.webdriver.remote.command import Command
 from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.ui import WebDriverWait
-from configparser import ConfigParser
 from functools import wraps
+from unittest2 import TestCase
 if sys.version < '3':
-    from unittest2 import TestCase
+    import ConfigParser
 else:
-    from unittest2py3k import TestCase
+    from configparser import ConfigParser
 
 import logging
 logger = logging.getLogger(__name__)
@@ -93,6 +93,7 @@ def setup_selenium_from_config(config):
 
     if config.has_option("SELENIUM", "SAVED_FILES_PATH"):
         SAVED_FILES_PATH = config.get("SELENIUM", "SAVED_FILES_PATH")
+
 
 class NoseSelenium(Plugin):
 
@@ -567,6 +568,7 @@ def use_selenium(test=None, user_agent=None):
     """
     if test is None:
         return partial(use_selenium, user_agent=user_agent)
+
     @wraps(test)
     def decorated(self):
         wd = build_webdriver(user_agent=user_agent)
@@ -574,19 +576,23 @@ def use_selenium(test=None, user_agent=None):
         try:
             test(self, wd)
         finally:
+            wd.close()
             wd.quit()
-            self._wds.remove(wd)
+            self._drivers.remove(wd)
     return decorated
+
 
 class TestWrapperMetaclass(type):
     """Metaclass that wraps the tests inside the TestCase to use selenium"""
-    def __new__(cls, classname, bases, attrs):
-        for k in dir(cls):
-            import pdb; pdb.set_trace()
-            v = getattr(cls, k)
+    _drivers = []
+
+    def __init__(self, classname, bases, namespace):
+        for k in dir(self):
+            v = getattr(self, k)
             if callable(v) and k.startswith('test'):
-                attrs[k] = use_selenium(v)
-        return type.__new__(cls, classname, bases, attrs)
+                setattr(self, k, use_selenium(v))
+            setattr(self, '_drivers', TestWrapperMetaclass._drivers)
+        return type.__init__(self, classname, bases, namespace)
 
     @classmethod
     def tearDownClass(cls):
@@ -594,7 +600,15 @@ class TestWrapperMetaclass(type):
             wd.quit()
 
 
-class SeleniumTestCase(TestCase):
+SeleniumTestCase = TestWrapperMetaclass('SeleniumTestCase', (TestCase, ), {})
 
-    __metaclass__ = TestWrapperMetaclass
-    _drivers = []
+
+#if sys.version < '3':
+#    class SeleniumTestCase(TestCase):
+#
+#        __metaclass__ = TestWrapperMetaclass
+#        _drivers = []
+#else:
+#    class SeleniumTestCase(TestCase, metaclass=TestWrapperMetaclass):
+#
+#        _drivers = []
