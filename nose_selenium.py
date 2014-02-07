@@ -273,7 +273,7 @@ class NoseSelenium(Plugin):
 
     @property
     def _valid_browsers_for_local(self):
-        return ['FIREFOX', 'INTERNETEXPLORER', 'CHROME']
+        return ['FIREFOX', 'INTERNETEXPLORER', 'CHROME', 'PHANTOMJS']
 
     def _browser_help(self):
         valid_browsers_for_sauce, valid_oses_for_sauce, combos = self._get_sauce_options()
@@ -501,13 +501,15 @@ def build_webdriver(name="", tags=[], public=False, **extra):
     wd = None
 
     if BROWSER_LOCATION == 'local':
-        #TODO Add PanthomJS case
         if BROWSER == 'FIREFOX':
             #TODO Create and add useragent to profile
             wd = webdriver.Firefox()
         elif BROWSER == 'CHROME':
             #TODO Create and add useragent to call flags
             wd = webdriver.Chrome()
+        elif BROWSER == 'PHANTOMJS':
+            #TODO Create and add useragent to call flags
+            wd = webdriver.PhantomJS()
         elif BROWSER == 'INTERNETEXPLORER':
             wd = webdriver.Ie()
         else:
