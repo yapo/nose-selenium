@@ -575,12 +575,10 @@ def use_selenium(test=None, user_agent=None):
     def decorated(self):
         wd = build_webdriver(user_agent=user_agent)
         self._drivers.append(wd)
-        try:
-            test(self, wd)
-        finally:
-            wd.close()
-            wd.quit()
-            self._drivers.remove(wd)
+        test(self, wd)
+        wd.close()
+        wd.quit()
+        self._drivers.remove(wd)
     return decorated
 
 
