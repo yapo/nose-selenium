@@ -500,68 +500,76 @@ def build_webdriver(name="", tags=[], public=False, **extra):
 
     wd = None
 
-    if BROWSER_LOCATION == 'local':
-        if BROWSER == 'FIREFOX':
-            #TODO Create and add useragent to profile
-            wd = webdriver.Firefox()
-        elif BROWSER == 'CHROME':
-            #TODO Create and add useragent to call flags
-            wd = webdriver.Chrome()
-        elif BROWSER == 'PHANTOMJS':
-            #TODO Create and add useragent to call flags
-            wd = webdriver.PhantomJS()
-        elif BROWSER == 'INTERNETEXPLORER':
-            wd = webdriver.Ie()
+    try:
+
+        if BROWSER_LOCATION == 'local':
+            if BROWSER == 'FIREFOX':
+                #TODO Create and add useragent to profile
+                wd = webdriver.Firefox()
+            elif BROWSER == 'CHROME':
+                #TODO Create and add useragent to call flags
+                wd = webdriver.Chrome()
+            elif BROWSER == 'PHANTOMJS':
+                #TODO Create and add useragent to call flags
+                wd = webdriver.PhantomJS()
+            elif BROWSER == 'INTERNETEXPLORER':
+                wd = webdriver.Ie()
+            else:
+                raise TypeError(
+                    'WebDriver does not have a driver for local %s' % BROWSER)
+
+        elif BROWSER_LOCATION == 'remote':
+            capabilities = getattr(webdriver.DesiredCapabilities, BROWSER.upper())
+            executor = 'http://%s:%s/wd/hub' % (REMOTE_ADDRESS, REMOTE_PORT)
+            # try:
+            wd = ScreenshotOnExceptionWebDriver(command_executor=executor,
+                                desired_capabilities=capabilities)
+            # except URLError:
+            #     # print(" caught URLError ",)
+            #     raise Exception(
+            #         "Remote selenium server at %s:%s is not responding."
+            #         % (REMOTE_ADDRESS, REMOTE_PORT))
+
+        elif BROWSER_LOCATION == 'grid':
+            capabilities = getattr(webdriver.DesiredCapabilities, BROWSER.upper())
+            capabilities['version'] = BROWSER_VERSION
+            capabilities['platform'] = OS.upper()
+            executor = 'http://%s:%s/wd/hub' % (REMOTE_ADDRESS, REMOTE_PORT)
+            # try:
+            wd = ScreenshotOnExceptionWebDriver(command_executor=executor,
+                                desired_capabilities=capabilities)
+            # except URLError:
+            #     # print(" caught URLError ",)
+            #     raise Exception(
+            #         "Selenium grid server at %s:%s is not responding."
+            #         % (REMOTE_ADDRESS, REMOTE_PORT))
+
+        elif BROWSER_LOCATION == 'sauce':
+            capabilities = {
+                'build': BUILD,
+                'name': name,
+                'tags': tags,
+                'public': public,
+                'restricted-public-info': not public,
+                'platform': OS,
+                'browserName': BROWSER,
+                'version': BROWSER_VERSION,
+            }
+            executor = 'http://%s:%s@ondemand.saucelabs.com:80/wd/hub' % (SAUCE_USERNAME, SAUCE_APIKEY)
+            wd = ScreenshotOnExceptionWebDriver(command_executor=executor,
+                                desired_capabilities=capabilities)
         else:
-            raise TypeError(
-                'WebDriver does not have a driver for local %s' % BROWSER)
+            raise TypeError("browser location %s not found" % BROWSER_LOCATION)
 
-    elif BROWSER_LOCATION == 'remote':
-        capabilities = getattr(webdriver.DesiredCapabilities, BROWSER.upper())
-        executor = 'http://%s:%s/wd/hub' % (REMOTE_ADDRESS, REMOTE_PORT)
-        # try:
-        wd = ScreenshotOnExceptionWebDriver(command_executor=executor,
-                              desired_capabilities=capabilities)
-        # except URLError:
-        #     # print(" caught URLError ",)
-        #     raise Exception(
-        #         "Remote selenium server at %s:%s is not responding."
-        #         % (REMOTE_ADDRESS, REMOTE_PORT))
+        wd.implicitly_wait(TIMEOUT)
+        # sometimes what goes out != what goes in, so log it
+        logger.info("actual capabilities: %s" % wd.capabilities)
 
-    elif BROWSER_LOCATION == 'grid':
-        capabilities = getattr(webdriver.DesiredCapabilities, BROWSER.upper())
-        capabilities['version'] = BROWSER_VERSION
-        capabilities['platform'] = OS.upper()
-        executor = 'http://%s:%s/wd/hub' % (REMOTE_ADDRESS, REMOTE_PORT)
-        # try:
-        wd = ScreenshotOnExceptionWebDriver(command_executor=executor,
-                              desired_capabilities=capabilities)
-        # except URLError:
-        #     # print(" caught URLError ",)
-        #     raise Exception(
-        #         "Selenium grid server at %s:%s is not responding."
-        #         % (REMOTE_ADDRESS, REMOTE_PORT))
+    except ex:
+        if wd is not None:
+            wd.quit()
+        raise ex
 
-    elif BROWSER_LOCATION == 'sauce':
-        capabilities = {
-            'build': BUILD,
-            'name': name,
-            'tags': tags,
-            'public': public,
-            'restricted-public-info': not public,
-            'platform': OS,
-            'browserName': BROWSER,
-            'version': BROWSER_VERSION,
-        }
-        executor = 'http://%s:%s@ondemand.saucelabs.com:80/wd/hub' % (SAUCE_USERNAME, SAUCE_APIKEY)
-        wd = ScreenshotOnExceptionWebDriver(command_executor=executor,
-                              desired_capabilities=capabilities)
-    else:
-        raise TypeError("browser location %s not found" % BROWSER_LOCATION)
-
-    wd.implicitly_wait(TIMEOUT)
-    # sometimes what goes out != what goes in, so log it
-    logger.info("actual capabilities: %s" % wd.capabilities)
     return wd
 
 
@@ -586,15 +594,13 @@ def use_selenium(test=None, user_agent=None):
 
 class TestWrapperMetaclass(type):
     """Metaclass that wraps the tests inside the TestCase to use selenium"""
-    _drivers = []
-
-    def __init__(self, classname, bases, namespace):
-        for k in dir(self):
+    def __new__(cls, classname, bases, attrs):
+        for k in dir(cls):
             v = getattr(self, k)
             if callable(v) and k.startswith('test'):
                 setattr(self, k, use_selenium(v))
-            setattr(self, '_drivers', TestWrapperMetaclass._drivers)
-        return type.__init__(self, classname, bases, namespace)
+            setattr(self, '_drivers', [])
+        return type.__init__(self, classname, bases, attrs)
 
     @classmethod
     def tearDownClass(cls):
