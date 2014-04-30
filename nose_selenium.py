@@ -407,7 +407,7 @@ class ScreenshotOnExceptionWebDriverWait(WebDriverWait):
                 # save the html
                 html_filename = SAVED_FILES_PATH + "/" + timestamp + ".html"
                 html = self._driver.page_source
-                outfile = open(html_filename, 'w')
+                outfile = open(html_filename, 'bw')
                 outfile.write(html.encode('utf8', 'ignore'))
                 outfile.close()
                 logger.error("HTML saved to %s" % html_filename)
@@ -575,10 +575,12 @@ def use_selenium(test=None, user_agent=None):
     def decorated(self):
         wd = build_webdriver(user_agent=user_agent)
         self._drivers.append(wd)
-        test(self, wd)
-        wd.close()
-        wd.quit()
-        self._drivers.remove(wd)
+        try:
+            test(self, wd)
+        finally:
+            wd.close()
+            wd.quit()
+            self._drivers.remove(wd)
     return decorated
 
 
