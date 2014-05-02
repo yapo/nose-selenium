@@ -483,6 +483,23 @@ class ScreenshotOnExceptionWebDriver(webdriver.Remote):
                     logger.error("Page URL: %s" % self.current_url)
                 raise
 
+def local_driver_class():
+    global BROWSER
+    if BROWSER == 'FIREFOX':
+        #TODO Create and add useragent to profile
+        cls = webdriver.Firefox
+    elif BROWSER == 'CHROME':
+        #TODO Create and add useragent to call flags
+        cls = webdriver.Chrome
+    elif BROWSER == 'PHANTOMJS':
+        #TODO Create and add useragent to call flags
+        cls = webdriver.PhantomJS
+    elif BROWSER == 'INTERNETEXPLORER':
+        cls = webdriver.Ie
+    else:
+        raise TypeError(
+            'WebDriver does not have a driver for local %s' % BROWSER)
+    return cls
 
 
 def build_webdriver(name="", tags=[], public=False, **extra):
@@ -501,20 +518,8 @@ def build_webdriver(name="", tags=[], public=False, **extra):
     wd = None
 
     if BROWSER_LOCATION == 'local':
-        if BROWSER == 'FIREFOX':
-            #TODO Create and add useragent to profile
-            wd = webdriver.Firefox()
-        elif BROWSER == 'CHROME':
-            #TODO Create and add useragent to call flags
-            wd = webdriver.Chrome()
-        elif BROWSER == 'PHANTOMJS':
-            #TODO Create and add useragent to call flags
-            wd = webdriver.PhantomJS()
-        elif BROWSER == 'INTERNETEXPLORER':
-            wd = webdriver.Ie()
-        else:
-            raise TypeError(
-                'WebDriver does not have a driver for local %s' % BROWSER)
+        DriverClass = local_driver_class()
+        wd = DriverClass()
 
     elif BROWSER_LOCATION == 'remote':
         capabilities = getattr(webdriver.DesiredCapabilities, BROWSER.upper())
@@ -565,15 +570,16 @@ def build_webdriver(name="", tags=[], public=False, **extra):
     return wd
 
 
-def use_selenium(test=None, user_agent=None):
+def _selenium_test_wrap(test=None, user_agent=None):
     """Decorator that provides a web driver as an extra argument
-    """
+
+    Intended to be used internally by TestWrapperMetaclass"""
     if test is None:
-        return partial(use_selenium, user_agent=user_agent)
+        return partial(_selenium_test_wrap, user_agent=user_agent)
 
     @wraps(test)
     def decorated(self):
-        wd = build_webdriver(user_agent=user_agent)
+        wd = self._build_webdriver(user_agent=user_agent)
         self._drivers.append(wd)
         try:
             test(self, wd)
@@ -583,18 +589,40 @@ def use_selenium(test=None, user_agent=None):
             self._drivers.remove(wd)
     return decorated
 
+def use_selenium(test=None, user_agent=None):
+    """Wraps a test unbuound method to use a selenium webdriver instance"""
+    if test is None:
+        return partial(use_selenium, user_agent=user_agent)
+    @wraps(test)
+    def decorated():
+        wd = build_webdriver(user_agent=user_agent)
+        try:
+            test(wd)
+        finally:
+            wd.close()
+            wd.quit()
+    return decorated
 
 class TestWrapperMetaclass(type):
     """Metaclass that wraps the tests inside the TestCase to use selenium"""
-    _drivers = []
 
     def __init__(self, classname, bases, namespace):
         for k in dir(self):
             v = getattr(self, k)
             if callable(v) and k.startswith('test'):
-                setattr(self, k, use_selenium(v))
-            setattr(self, '_drivers', TestWrapperMetaclass._drivers)
+                setattr(self, k, _selenium_test_wrap(v))
+        if not hasattr(self, '_build_webdriver'):
+            self._build_webdriver = _build_webdriver
         return type.__init__(self, classname, bases, namespace)
+
+
+class SeleniumTestCaseMixin(object):
+    """Mixin containing required methods for TestWrapperMetaclass"""
+    _drivers = []
+
+    def _build_webdriver(self, *args, **kwargs):
+        """Returns a new Instance of webdriver"""
+        return build_webdriver(*args, **kwargs)
 
     @classmethod
     def tearDownClass(cls):
@@ -602,15 +630,4 @@ class TestWrapperMetaclass(type):
             wd.quit()
 
 
-SeleniumTestCase = TestWrapperMetaclass('SeleniumTestCase', (TestCase, ), {})
-
-
-#if sys.version < '3':
-#    class SeleniumTestCase(TestCase):
-#
-#        __metaclass__ = TestWrapperMetaclass
-#        _drivers = []
-#else:
-#    class SeleniumTestCase(TestCase, metaclass=TestWrapperMetaclass):
-#
-#        _drivers = []
+SeleniumTestCase = TestWrapperMetaclass('SeleniumTestCase', (TestCase, SeleniumTestCaseMixin), {})
