@@ -501,6 +501,13 @@ def local_driver_class():
             'WebDriver does not have a driver for local %s' % BROWSER)
     return cls
 
+def _extra_kwargs():
+    global BROWSER
+    args = {}
+    if BROWSER == 'PHANTOMJS':
+        args['service_args'] = ['--ignore-ssl-errors=true',]
+    return args
+
 
 def build_webdriver(name="", tags=[], public=False, **extra):
     """Create and return the desired WebDriver instance."""
@@ -519,7 +526,8 @@ def build_webdriver(name="", tags=[], public=False, **extra):
 
     if BROWSER_LOCATION == 'local':
         DriverClass = local_driver_class()
-        wd = DriverClass()
+        wd_kwargs = _extra_kwargs()
+        wd = DriverClass(**wd_kwargs)
 
     elif BROWSER_LOCATION == 'remote':
         capabilities = getattr(webdriver.DesiredCapabilities, BROWSER.upper())
