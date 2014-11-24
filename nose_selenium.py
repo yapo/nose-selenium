@@ -575,7 +575,9 @@ def _selenium_test_wrap(test=None, user_agent=None):
 
     Intended to be used internally by TestWrapperMetaclass"""
     if test is None:
-        return partial(_selenium_test_wrap, user_agent=user_agent)
+        partial_test = partial(_selenium_test_wrap, user_agent=user_agent)
+        partial_test.already_decorated = True
+        return partial_test
 
     @wraps(test)
     def decorated(self):
@@ -587,6 +589,7 @@ def _selenium_test_wrap(test=None, user_agent=None):
             wd.close()
             wd.quit()
             self._drivers.remove(wd)
+    decorated.already_decorated = True
     return decorated
 
 def use_selenium(test=None, user_agent=None):
@@ -609,7 +612,7 @@ class TestWrapperMetaclass(type):
     def __init__(self, classname, bases, namespace):
         for k in dir(self):
             v = getattr(self, k)
-            if callable(v) and k.startswith('test'):
+            if callable(v) and k.startswith('test') and not hasattr(v, 'already_decorated'):
                 setattr(self, k, _selenium_test_wrap(v))
         if not hasattr(self, '_build_webdriver'):
             self._build_webdriver = _build_webdriver
