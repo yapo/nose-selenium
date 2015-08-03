@@ -612,7 +612,7 @@ class TestWrapperMetaclass(type):
     def __init__(self, classname, bases, namespace):
         for k in dir(self):
             v = getattr(self, k)
-            if callable(v) and k.startswith('test') and not hasattr(v, 'already_decorated'):
+            if callable(v) and any(map(k.startswith, ['test', 'ptest'])) and not hasattr(v, 'already_decorated'):
                 setattr(self, k, _selenium_test_wrap(v))
         if not hasattr(self, '_build_webdriver'):
             self._build_webdriver = _build_webdriver
